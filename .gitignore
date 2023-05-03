@@ -1,0 +1,34 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+
+# Generated lakehouse data (keep archive/ source CSVs)
+data/landing/
+data/bronze/
+data/warehouse/
+data/control/
+data/quarantine/
+data/benchmark/
+
+# dbt
+transform/target/
+transform/dbt_packages/
+transform/logs/
+logs/
+
+.env
+*.log
+.DS_Store
+Thumbs.db
+
+# Source dataset - public Kaggle Olist, see README for download
+archive/
+
+# Personal working notes / source brief - not part of the deliverable
+Learning docs/
+*Use case Build a production-s.txt
+
+# dbt anonymous telemetry id (machine-local)
+transform/.user.yml
