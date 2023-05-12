@@ -1,0 +1,103 @@
+version: 2
+
+models:
+  - name: silver_orders
+    columns:
+      - name: order_id
+        tests: [unique, not_null]
+      - name: customer_id
+        tests: [not_null]
+      - name: order_status
+        tests:
+          - accepted_values:
+              arguments:
+                values:
+                  - delivered
+                  - shipped
+                  - canceled
+                  - unavailable
+                  - invoiced
+                  - processing
+                  - created
+                  - approved
+
+  - name: silver_order_items
+    columns:
+      - name: order_item_key
+        tests: [unique, not_null]
+      - name: order_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('silver_orders')
+                field: order_id
+      - name: product_id
+        tests: [not_null]
+
+  - name: silver_order_payments
+    columns:
+      - name: payment_key
+        tests: [unique, not_null]
+      - name: payment_type
+        tests:
+          - accepted_values:
+              arguments:
+                values: [credit_card, boleto, voucher, debit_card, not_defined]
+
+  - name: silver_customers
+    columns:
+      - name: customer_id
+        tests: [unique, not_null]
+      - name: customer_unique_id
+        tests: [not_null]
+
+  - name: silver_products
+    columns:
+      - name: product_id
+        tests: [unique, not_null]
+
+  - name: dim_customer
+    columns:
+      - name: customer_sk
+        tests: [unique, not_null]
+
+  - name: dim_product
+    columns:
+      - name: product_sk
+        tests: [unique, not_null]
+
+  - name: dim_date
+    columns:
+      - name: date_key
+        tests: [unique, not_null]
+
+  - name: fct_order_items
+    columns:
+      - name: order_item_key
+        tests: [unique, not_null]
+      - name: customer_sk
+        tests:
+          - relationships:
+              arguments:
+                to: ref('dim_customer')
+                field: customer_sk
+      - name: product_sk
+        tests:
+          - relationships:
+              arguments:
+                to: ref('dim_product')
+                field: product_sk
+      - name: date_key
+        tests:
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_key
+
+  - name: fct_daily_sales
+    columns:
+      - name: date_key
+        tests: [unique, not_null]
+      - name: revenue
+        tests: [not_null]

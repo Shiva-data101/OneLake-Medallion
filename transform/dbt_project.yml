@@ -1,0 +1,28 @@
+name: onelake
+version: "1.0.0"
+config-version: 2
+profile: onelake
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+analysis-paths: ["analyses"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+vars:
+  bronze_root: "{{ env_var('ONELAKE_BRONZE', 'data/bronze') }}"
+
+models:
+  onelake:
+    staging:
+      +schema: staging
+      +materialized: view
+    silver:
+      +schema: silver
+      +materialized: incremental
+      +incremental_strategy: delete+insert
+    gold:
+      +schema: gold
+      +materialized: table
