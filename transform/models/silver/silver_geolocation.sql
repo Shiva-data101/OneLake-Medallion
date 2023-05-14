@@ -9,7 +9,7 @@ with ranked as (
         ) as _row_num
     from {{ ref('stg_geolocation') }}
     where geolocation_zip_code_prefix is not null
-    {{ incremental_updated_at() }}
+    {{ incremental_ingested_at() }}
 )
 
 select

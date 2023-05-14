@@ -10,7 +10,7 @@ with ranked as (
     from {{ ref('stg_order_reviews') }}
     where review_id is not null
       and order_id is not null
-    {{ incremental_updated_at() }}
+    {{ incremental_ingested_at() }}
 )
 
 select

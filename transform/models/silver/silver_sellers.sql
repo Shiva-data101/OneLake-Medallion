@@ -9,7 +9,7 @@ with ranked as (
         ) as _row_num
     from {{ ref('stg_sellers') }}
     where seller_id is not null
-    {{ incremental_updated_at() }}
+    {{ incremental_ingested_at() }}
 )
 
 select

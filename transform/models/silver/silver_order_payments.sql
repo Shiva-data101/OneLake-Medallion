@@ -11,7 +11,7 @@ with ranked as (
     from {{ ref('stg_order_payments') }}
     where order_id is not null
       and payment_sequential is not null
-    {{ incremental_updated_at() }}
+    {{ incremental_ingested_at() }}
 )
 
 select

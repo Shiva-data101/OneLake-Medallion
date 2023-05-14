@@ -12,7 +12,7 @@ with ranked as (
     left join {{ ref('stg_product_category_translation') }} as translation
         on products.product_category_name = translation.product_category_name
     where products.product_id is not null
-    {{ incremental_updated_at('products.updated_at') }}
+    {{ incremental_ingested_at('products._ingested_at') }}
 )
 
 select

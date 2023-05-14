@@ -23,7 +23,8 @@ select
     items.price,
     items.freight_value,
     items.price + items.freight_value as gross_amount,
-    items.updated_at
+    items.updated_at,
+    items._ingested_at
 from {{ ref('silver_order_items') }} as items
 inner join {{ ref('silver_orders') }} as orders
     on items.order_id = orders.order_id
@@ -33,8 +34,8 @@ where not items.is_quarantined
   and items.price >= 0
   and items.freight_value >= 0
 {% if is_incremental() %}
-  and items.updated_at > (
-      select coalesce(max(updated_at), timestamp '1900-01-01 00:00:00')
+  and items._ingested_at > (
+      select coalesce(max(_ingested_at), timestamp '1900-01-01 00:00:00')
       from {{ this }}
   )
 {% endif %}

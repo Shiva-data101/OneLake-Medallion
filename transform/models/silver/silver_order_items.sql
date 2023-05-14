@@ -12,7 +12,7 @@ with ranked as (
     where order_id is not null
       and order_item_id is not null
       and product_id is not null
-    {{ incremental_updated_at() }}
+    {{ incremental_ingested_at() }}
 )
 
 select

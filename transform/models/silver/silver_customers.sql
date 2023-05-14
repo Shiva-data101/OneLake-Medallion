@@ -10,7 +10,7 @@ with ranked as (
     from {{ ref('stg_customers') }}
     where customer_id is not null
       and customer_unique_id is not null
-    {{ incremental_updated_at() }}
+    {{ incremental_ingested_at() }}
 )
 
 select
