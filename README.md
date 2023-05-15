@@ -41,9 +41,9 @@ archive/ CSV  ->  generate_batches.py --cutoff  ->  data/landing/YYYY-MM-DD/*.pa
 
 2. **Ingest folder cursor (`last_batch_date` in `data/control/watermarks.json`)** — ingest only opens folders named after this date. After `--backfill` through `2018-06-30`, the cursor is the last backfill folder. `--once` then takes the next folder (the replay queue). This cursor does not read row contents.
 
-3. **dbt column watermark (`updated_at` on the table already built)** — on later runs, incremental models keep rows where `updated_at > max(updated_at)` on `{{ this }}`. `is_incremental()` is false on the first build. `unique_key` plus `delete+insert` replaces a late update of the same business key instead of duplicating it.
+3. **dbt column watermark (`_ingested_at` on the table already built)** — on later runs, incremental models keep rows where `_ingested_at > max(_ingested_at)` on `{{ this }}`. That column is stamped at ingest time, so it only moves forward. `is_incremental()` is false on the first build. `unique_key` plus `delete+insert` replaces a late update of the same business key instead of duplicating it.
 
-Do not watermark dbt on `order_date`. A row placed on 2018-06-28 and updated on 2018-07-03 would be dropped.
+Do not watermark dbt on `order_date` (a late update of an old order would be dropped) and do not watermark on `updated_at` (a business lifecycle time that can sit in the future after backfill). See the diagnosis below.
 
 Cutoff is inclusive: `order_date <= 2018-06-30` is one backfill load; later folders are the replay queue. The cutoff is stored in `data/landing/_meta.json`. Folders stay flat (`landing/YYYY-MM-DD`).
 
@@ -92,28 +92,35 @@ Optional late-arriving row (old `order_date`, new `updated_at`, new landing fold
 
 ## Measured incremental proof
 
-Recorded on this machine (Windows, Python 3.12.10, DuckDB 1.5.5) after `reset` → `--backfill` → `dbt build` full → `replay_days.py --days 30`. Source files: `data/control/run_log.jsonl`, `data/benchmark/replay_days.jsonl`.
+Recorded on this machine (Windows, Python 3.12.10, DuckDB 1.5.5) after `reset` → `--backfill` → `dbt build` full → `replay_days.py --days 30`, with incremental models watermarked on `_ingested_at`. Source files: `data/control/run_log.jsonl`, `data/benchmark/replay_days.jsonl`.
 
 Cutoff `2018-06-30` inclusive: 557 backfill day folders, 77 replay-queue folders.
 
 | Step | Rows written | Duration |
 | --- | ---: | ---: |
-| `generate_batches.py --cutoff 2018-06-30` | 634 day folders / 3,174 files / 99,441 orders | ~34 s |
-| `ingest.py --backfill` | 1,484,933 (558 batches: `_reference` + 557 days) | 82.5 s |
-| First `dbt build` (full) | 54/54 tests passed | 7.62 s dbt / 14.3 s wall |
-| 30-day replay ingest | 30,781 total (467–1,590 per day, median 990) | 0.31–0.77 s per day (median 0.40 s) |
-| 30-day replay `dbt build` | 54/54 each day | 5.06–8.29 s wall (median 6.19 s) |
+| `ingest.py --backfill` | 1,484,933 (558 batches: `_reference` + 557 days) | 60.5 s |
+| First `dbt build` (full) | 23 models + 31 tests passed | 12.77 s dbt / 24.2 s wall |
+| 30-day replay ingest | 30,781 total (467–1,590 per day, median 990) | 0.26–0.80 s per day (median 0.37 s) |
+| 30-day replay `dbt build` | 23 models + 31 tests each day | 7.46–13.01 s wall (median 8.46 s) |
 
-Replay folders were `2018-07-01` through `2018-07-30`. Ingest folder cursor ended at `last_batch_date=2018-07-30`. Bronze order_items went from 98,309 (backfill) to 105,024 (after replay).
+Replay folders were `2018-07-01` through `2018-07-30`. Ingest folder cursor ended at `last_batch_date=2018-07-30`.
 
-Gold after the backfill build (and still after the 30 replay days):
+| Layer | After backfill | After 30 replay days |
+| --- | ---: | ---: |
+| Bronze `order_items` | 98,309 | 105,024 |
+| Gold `fct_order_items` | 98,309 | **105,024** |
+| Gold `dim_customer` | 83,748 | 89,505 |
+| Gold `fct_daily_sales` | 555 | 585 |
+| `fct_order_items` max `order_date` | 2018-06-30 | **2018-07-30** |
+| July `fct_order_items` rows | 0 | **6,715** |
+| Revenue (`sum(price)`) | 11,841,305.15 | 12,691,496.09 |
 
-| Model | Rows |
-| --- | ---: |
-| `dim_customer` | 83,748 |
-| `fct_order_items` | 98,309 |
-| `fct_daily_sales` | 555 |
-| Revenue (`sum(price)`) | 11,841,305.15 |
-| Sales date range | 2016-09-04 to 2018-06-30 |
+Gold `fct_order_items` now matches bronze `order_items` after replay. The 6,715 new fact rows are exactly `105,024 − 98,309`.
 
-**What the 30-day loop actually proved.** The folder cursor works: each `--once` appended one new landing day to bronze. dbt incremental did *not* add those July rows to silver/gold. After backfill, `max(updated_at)` on `silver_orders` was already `2018-10-17` and on `silver_order_items` `2020-04-09`, because `updated_at` is the latest lifecycle timestamp (delivery, shipping limit, etc.), not the landing day. The incremental predicate `updated_at > max(updated_at)` then rejects new July purchases. That is a watermark-column problem, not an ingest problem. Fixing it means changing how `updated_at` is defined (or watermarking on `_ingested_at` / `_batch_id`) — out of scope for this turn, and the next thing to defend in an interview.
+### What went wrong, and how it was diagnosed
+
+The first 30-day replay proved the **folder cursor** was correct and the **dbt watermark column** was not. Each July day appended to bronze (`order_items` 98,309 → 105,024), but `fct_order_items` stayed at 98,309 with `max(order_date)=2018-06-30`.
+
+The incremental predicate was `updated_at > max(updated_at)`. `updated_at` is the latest *business* timestamp on the row (delivery, shipping limit, estimated delivery). After backfill, `max(updated_at)` on silver orders was already `2018-10-17` and on items `2020-04-09`. Every July purchase looked older than that watermark and was dropped.
+
+The fix is to watermark on `_ingested_at` (stamped when the file hit bronze). That clock only moves when ingest runs. After the same 30-day replay with that change, July rows land in gold (`max(order_date)=2018-07-30`, 6,715 July fact rows).
