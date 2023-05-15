@@ -32,3 +32,6 @@ Learning docs/
 
 # dbt anonymous telemetry id (machine-local)
 transform/.user.yml
+
+# Cursor agent context (local only)
+.cursor/
