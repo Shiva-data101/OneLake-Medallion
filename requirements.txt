@@ -1,4 +1,4 @@
-# Phase 1 local lakehouse — pin to Python 3.12 or 3.13 (not 3.14).
+# Phase 1–2 local lakehouse — pin to Python 3.12 or 3.13 (not 3.14).
 dbt-core>=1.10,<1.13
 dbt-duckdb>=1.9
 duckdb>=1.1
@@ -6,3 +6,5 @@ deltalake>=0.20
 pandas>=2.2
 pyarrow>=16
 python-dateutil>=2.9
+# Soda Core v4. soda-core-duckdb 3.x pins duckdb<1.1 and cannot run here.
+soda-duckdb>=4.22,<5
