@@ -2,10 +2,19 @@ version: 2
 
 models:
   - name: silver_orders
+    tests:
+      - dbt_expectations.expect_column_pair_values_A_to_be_greater_than_B:
+          arguments:
+            column_A: order_delivered_customer_date
+            column_B: order_purchase_timestamp
+            or_equal: true
+            row_condition: "order_delivered_customer_date is not null and order_purchase_timestamp is not null"
     columns:
       - name: order_id
         tests: [unique, not_null]
       - name: customer_id
+        tests: [not_null]
+      - name: order_date
         tests: [not_null]
       - name: order_status
         tests:
@@ -20,6 +29,15 @@ models:
                   - processing
                   - created
                   - approved
+          - dbt_expectations.expect_column_distinct_count_to_be_greater_than:
+              arguments:
+                value: 1
+      - name: _ingested_at
+        tests:
+          - dbt_expectations.expect_row_values_to_have_recent_data:
+              arguments:
+                datepart: day
+                interval: 7
 
   - name: silver_order_items
     columns:
@@ -33,17 +51,90 @@ models:
                 to: ref('silver_orders')
                 field: order_id
       - name: product_id
-        tests: [not_null]
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('silver_products')
+                field: product_id
+      - name: seller_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('silver_sellers')
+                field: seller_id
+      - name: order_item_id
+        tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 1
+                max_value: 30
+      - name: price
+        tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                max_value: 15000
+                row_condition: "not is_quarantined"
+      - name: freight_value
+        tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+                max_value: 2000
+                row_condition: "not is_quarantined"
 
   - name: silver_order_payments
     columns:
       - name: payment_key
         tests: [unique, not_null]
+      - name: order_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('silver_orders')
+                field: order_id
       - name: payment_type
         tests:
           - accepted_values:
               arguments:
                 values: [credit_card, boleto, voucher, debit_card, not_defined]
+      - name: payment_value
+        tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+                max_value: 20000
+      - name: payment_installments
+        tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+                max_value: 24
+
+  - name: silver_order_reviews
+    columns:
+      - name: review_id
+        tests: [unique, not_null]
+      - name: order_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('silver_orders')
+                field: order_id
+      - name: review_score
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 1
+                max_value: 5
+          - dbt_expectations.expect_column_mean_to_be_between:
+              arguments:
+                min_value: 3.5
+                max_value: 4.7
 
   - name: silver_customers
     columns:
@@ -51,10 +142,59 @@ models:
         tests: [unique, not_null]
       - name: customer_unique_id
         tests: [not_null]
+      - name: customer_state
+        tests:
+          - accepted_values:
+              arguments:
+                values:
+                  - AC
+                  - AL
+                  - AP
+                  - AM
+                  - BA
+                  - CE
+                  - DF
+                  - ES
+                  - GO
+                  - MA
+                  - MT
+                  - MS
+                  - MG
+                  - PA
+                  - PB
+                  - PR
+                  - PE
+                  - PI
+                  - RJ
+                  - RN
+                  - RS
+                  - RO
+                  - RR
+                  - SC
+                  - SP
+                  - SE
+                  - TO
 
   - name: silver_products
     columns:
       - name: product_id
+        tests: [unique, not_null]
+      - name: product_weight_g
+        tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+                max_value: 50000
+                row_condition: "product_weight_g is not null"
+
+  - name: silver_sellers
+    columns:
+      - name: seller_id
+        tests: [unique, not_null]
+
+  - name: silver_geolocation
+    columns:
+      - name: geolocation_zip_code_prefix
         tests: [unique, not_null]
 
   - name: dim_customer
@@ -62,20 +202,27 @@ models:
       - name: customer_sk
         tests: [unique, not_null]
 
-  - name: dim_product
-    columns:
-      - name: product_sk
-        tests: [unique, not_null]
-
   - name: dim_date
     columns:
       - name: date_key
         tests: [unique, not_null]
 
+  - name: dim_product
+    columns:
+      - name: product_sk
+        tests: [unique, not_null]
+
   - name: fct_order_items
+    tests:
+      - dbt_expectations.expect_table_row_count_to_equal_other_table:
+          arguments:
+            compare_model: ref('silver_order_items')
+            compare_row_condition: "not is_quarantined"
     columns:
       - name: order_item_key
         tests: [unique, not_null]
+      - name: price
+        tests: [not_null]
       - name: customer_sk
         tests:
           - relationships:
