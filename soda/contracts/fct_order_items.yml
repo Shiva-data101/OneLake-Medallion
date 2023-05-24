@@ -1,0 +1,17 @@
+dataset: onelake/main_gold/fct_order_items
+
+checks:
+  - row_count:
+      name: fct_order_items row count after cutoff plus replay
+      threshold:
+        must_be_between:
+          greater_than_or_equal: 90000
+          less_than_or_equal: 130000
+  - freshness:
+      name: fct_order_items arrival freshness
+      column: _ingested_at
+      threshold:
+        unit: day
+        must_be_less_than: 7
+
+columns: []

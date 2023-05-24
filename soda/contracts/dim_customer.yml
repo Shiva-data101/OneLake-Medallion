@@ -1,0 +1,11 @@
+dataset: onelake/main_gold/dim_customer
+
+checks:
+  - row_count:
+      name: dim_customer person count
+      threshold:
+        must_be_between:
+          greater_than_or_equal: 70000
+          less_than_or_equal: 110000
+
+columns: []

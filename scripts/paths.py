@@ -1,4 +1,4 @@
-"""Shared filesystem locations for Phase 1 scripts."""
+"""Shared filesystem locations for lakehouse scripts."""
 
 from __future__ import annotations
 
@@ -14,6 +14,10 @@ CONTROL_DIR = DATA_DIR / "control"
 WAREHOUSE_DIR = DATA_DIR / "warehouse"
 QUARANTINE_DIR = DATA_DIR / "quarantine"
 BENCHMARK_DIR = DATA_DIR / "benchmark"
+SODA_DIR = PROJECT_ROOT / "soda"
+SODA_DS_CONFIG_PATH = SODA_DIR / "ds_config.yml"
+SODA_DS_CONFIG_LOCAL_PATH = SODA_DIR / "ds_config.local.yml"
+SODA_CONTRACTS_DIR = SODA_DIR / "contracts"
 
 WATERMARKS_PATH = CONTROL_DIR / "watermarks.json"
 RUN_LOG_PATH = CONTROL_DIR / "run_log.jsonl"

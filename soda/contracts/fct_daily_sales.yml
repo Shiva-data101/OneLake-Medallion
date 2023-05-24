@@ -1,0 +1,11 @@
+dataset: onelake/main_gold/fct_daily_sales
+
+checks:
+  - row_count:
+      name: fct_daily_sales day count
+      threshold:
+        must_be_between:
+          greater_than_or_equal: 400
+          less_than_or_equal: 800
+
+columns: []

@@ -1,0 +1,4 @@
+type: duckdb
+name: onelake
+connection:
+  database: "data/warehouse/onelake.duckdb"

@@ -18,6 +18,10 @@ transform/dbt_packages/
 transform/logs/
 logs/
 
+# Soda local scan leftovers
+.soda/
+soda/ds_config.local.yml
+
 .env
 *.log
 .DS_Store

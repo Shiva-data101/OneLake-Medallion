@@ -1,0 +1,17 @@
+dataset: onelake/main_silver/silver_orders
+
+checks:
+  - row_count:
+      name: silver_orders row count after cutoff plus replay
+      threshold:
+        must_be_between:
+          greater_than_or_equal: 80000
+          less_than_or_equal: 120000
+  - freshness:
+      name: silver_orders arrival freshness
+      column: _ingested_at
+      threshold:
+        unit: day
+        must_be_less_than: 7
+
+columns: []
