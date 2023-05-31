@@ -1,8 +1,8 @@
 # OneLake Medallion
 
-Local Phase 1 lakehouse for the Olist Brazilian E-Commerce dataset: daily landing files, append-only Bronze Delta, and dbt Silver/Gold on DuckDB.
+Local lakehouse for the Olist Brazilian E-Commerce dataset: daily landing files, append-only Bronze Delta, dbt Silver/Gold on DuckDB, and a data-quality gate (`dbt_expectations` plus Soda Core).
 
-Later phases add data-quality gates, CI/CD, Fabric/OneLake, and Terraform.
+Later phases add CI/CD, Fabric/OneLake, and Terraform.
 
 ## Get the data
 
@@ -31,8 +31,9 @@ archive/ CSV  ->  generate_batches.py --cutoff  ->  data/landing/YYYY-MM-DD/*.pa
                                                 data/landing/_reference/*.parquet
                      reset.py                  ->  empty bronze, watermarks, run_log, duckdb
                      ingest.py --backfill      ->  bronze through cutoff
-                     dbt build (full)          ->  staging / silver / gold baseline
+                     dbt build (full)          ->  staging / silver / gold + 61 tests
                      replay_days.py --days 30  ->  ingest --once + incremental dbt, 30 times
+                     run_soda.py               ->  freshness and row-count contracts
 ```
 
 ## Three clocks (do not mix these)
@@ -54,9 +55,10 @@ Use **Python 3.12 or 3.13** (this repo is pinned to 3.12). Stable dbt does not r
 ```powershell
 py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\dbt.exe deps --project-dir transform --profiles-dir transform
 ```
 
-No Azure CLI, Terraform, Docker, or Fabric trial is required for Phase 1.
+Quality checks: dbt generic tests, `dbt_expectations` 0.10.10, and Soda Core v4 (`soda-duckdb`). Soda Core v3 (`soda-core-duckdb` 3.5) pins `duckdb<1.1` and cannot run against this warehouse (DuckDB 1.5.5). No Azure CLI, Terraform, Docker, or Fabric trial is required.
 
 ## Run the cutoff + 30-day replay
 
@@ -68,6 +70,7 @@ From the repo root:
 .\.venv\Scripts\python.exe scripts\ingest.py --backfill
 .\.venv\Scripts\python.exe scripts\run_dbt.py --run-type full
 .\.venv\Scripts\python.exe scripts\replay_days.py --days 30
+.\.venv\Scripts\python.exe scripts\run_soda.py
 ```
 
 `reset.py` is idempotent. It deletes bronze, `watermarks.json`, `run_log.jsonl`, and the DuckDB file. It does not touch `landing/` or `archive/`.
@@ -92,16 +95,17 @@ Optional late-arriving row (old `order_date`, new `updated_at`, new landing fold
 
 ## Measured incremental proof
 
-Recorded on this machine (Windows, Python 3.12.10, DuckDB 1.5.5) after `reset` → `--backfill` → `dbt build` full → `replay_days.py --days 30`, with incremental models watermarked on `_ingested_at`. Source files: `data/control/run_log.jsonl`, `data/benchmark/replay_days.jsonl`.
+Recorded on this machine (Windows, Python 3.12.10, DuckDB 1.5.5) after `reset` → `--backfill` → `dbt build` full → `replay_days.py --days 30`, with incremental models watermarked on `_ingested_at`. Source files: `data/control/run_log.jsonl`, `data/benchmark/replay_days.jsonl`. The Phase 2 `dbt build --full-refresh` line is from the same `run_log.jsonl` after the quality gate was added (`duration_seconds` 12.262, dbt reported 8.10s).
 
 Cutoff `2018-06-30` inclusive: 557 backfill day folders, 77 replay-queue folders.
 
 | Step | Rows written | Duration |
 | --- | ---: | ---: |
 | `ingest.py --backfill` | 1,484,933 (558 batches: `_reference` + 557 days) | 60.5 s |
-| First `dbt build` (full) | 23 models + 31 tests passed | 12.77 s dbt / 24.2 s wall |
+| First `dbt build` (full, Phase 1, 31 tests) | 23 models + 31 tests passed | 12.77 s dbt / 24.2 s wall |
 | 30-day replay ingest | 30,781 total (467–1,590 per day, median 990) | 0.26–0.80 s per day (median 0.37 s) |
-| 30-day replay `dbt build` | 23 models + 31 tests each day | 7.46–13.01 s wall (median 8.46 s) |
+| 30-day replay `dbt build` (Phase 1, 31 tests) | 23 models + 31 tests each day | 7.46–13.01 s wall (median 8.46 s) |
+| `dbt build --full-refresh` (Phase 2, 61 tests) | 23 models + 61 tests passed | 8.10 s dbt / 12.3 s wall |
 
 Replay folders were `2018-07-01` through `2018-07-30`. Ingest folder cursor ended at `last_batch_date=2018-07-30`.
 
@@ -124,3 +128,80 @@ The first 30-day replay proved the **folder cursor** was correct and the **dbt w
 The incremental predicate was `updated_at > max(updated_at)`. `updated_at` is the latest *business* timestamp on the row (delivery, shipping limit, estimated delivery). After backfill, `max(updated_at)` on silver orders was already `2018-10-17` and on items `2020-04-09`. Every July purchase looked older than that watermark and was dropped.
 
 The fix is to watermark on `_ingested_at` (stamped when the file hit bronze). That clock only moves when ingest runs. After the same 30-day replay with that change, July rows land in gold (`max(order_date)=2018-07-30`, 6,715 July fact rows).
+
+## Data quality gate
+
+`dbt build` now runs **23 models + 61 tests** (it prints 84 because it counts both together). Bounds below were set from the warehouse after the 30-day replay, not guessed. A test that the model already filters to make unfailable was not added.
+
+### Prove it fails
+
+Staging only `try_cast`s `review_score`, so a 99 would reach silver and pull average rating. The named gate is `dbt_expectations.expect_column_values_to_be_between` on `silver_order_reviews.review_score` (1–5).
+
+```powershell
+.\.venv\Scripts\python.exe scripts\prove_quality_gate.py
+```
+
+Measured on this machine: bronze review `a8724d975e573edc200c3e34515b8e83` was copied with `review_score=99` and a new `_ingested_at`. Incremental `dbt build --select silver_order_reviews` failed:
+
+`dbt_expectations_expect_column_values_to_be_between_silver_order_reviews_review_score__5__1` → **FAIL 1**.
+
+The same `review_id` was then appended with the original score `5`. The same test **PASS**ed. Bronze stays append-only; silver `delete+insert` on `review_id` keeps the latest arrival.
+
+### dbt tests (what each one protects)
+
+| Test | If it failed, the business effect |
+| --- | --- |
+| `unique` / `not_null` `silver_orders.order_id` | Two versions of the same order, or a missing key, would double-count or drop that order's items and payments. |
+| `not_null` `silver_orders.customer_id` | An order with no customer vanishes from person-level revenue (`dim_customer` is keyed on `customer_unique_id`, joined through this id). |
+| `not_null` `silver_orders.order_date` | A null purchase day cannot join `dim_date` or land in `fct_daily_sales`, so that day's GMV disappears. |
+| `accepted_values` `order_status` | A junk status such as `unknown` is dropped from delivered/canceled filters and understates GMV by status. |
+| `expect_column_distinct_count_to_be_greater_than` `order_status` > 1 | A load that collapsed every order to one status would make mix charts look fine while the real mix is gone. |
+| `expect_column_pair` delivered ≥ purchase | A delivery before purchase inverts SLA and "days to deliver". |
+| `expect_row_values_to_have_recent_data` `silver_orders._ingested_at` (7 days) | Ingest has not written. Silver is a stale snapshot even if `order_date` still looks like 2018. Freshness is on arrival time, not order date. |
+| `unique` / `not_null` `silver_order_items.order_item_key` | Duplicate line items inflate item count and revenue. |
+| `not_null` + `relationships` `order_id` → `silver_orders` | Gold inner-joins items to orders. An orphan item never reaches `fct_order_items`, so category revenue is understated. |
+| `not_null` + `relationships` `product_id` → `silver_products` | An orphan `product_id` in `fct_order_items` fails the `dim_product` join and silently drops that category's revenue. |
+| `not_null` + `relationships` `seller_id` → `silver_sellers` | An item with no seller cannot be attributed to a marketplace seller. |
+| `expect_column_values_to_be_between` `order_item_id` 1–30 | A 0 or 999 sequence is a parse error that would invent extra lines. Measured max after replay was 21. |
+| `expect_column_values_to_be_between` `price` ≤ 15000 (not quarantined) | A million-real glitch would dominate daily revenue and AOV. Negatives are quarantined on purpose, so they are not in this test. Measured max after replay was 6735. |
+| `expect_column_values_to_be_between` `freight_value` 0–2000 (not quarantined) | A huge freight value would inflate shipping cost. Measured max after replay was 409.68. |
+| `unique` / `not_null` `silver_order_payments.payment_key` | Duplicate payment sequences double-count collected cash. |
+| `not_null` + `relationships` `order_id` → `silver_orders` | A payment with no order is cash that never shows on the purchase. |
+| `accepted_values` `payment_type` | A typo type is dropped from credit-card vs boleto mix. |
+| `expect_column_values_to_be_between` `payment_value` 0–20000 | A negative payment shrinks GMV; a huge one spikes it. Measured max after replay was 13664.08. |
+| `expect_column_values_to_be_between` `payment_installments` 0–24 | 36+ installments is not an Olist plan and would break installment mix. Measured max after replay was 24. |
+| `unique` / `not_null` `silver_order_reviews.review_id` | Duplicate reviews inflate average rating. |
+| `not_null` + `relationships` `order_id` → `silver_orders` | A review with no order cannot be tied to a purchase. |
+| `not_null` `review_score` | A null score is dropped from average rating. |
+| `expect_column_values_to_be_between` `review_score` 1–5 | A score of 99 pulls CSAT up. This is the named gate in `prove_quality_gate.py`. |
+| `expect_column_mean_to_be_between` `review_score` 3.5–4.7 | A flood of all-1s or all-5s moves CSAT even when every row is still in 1–5. Measured mean after replay was 4.076. |
+| `unique` / `not_null` `silver_customers.customer_id` | This is the per-order customer key. Duplicates fan out joins into `dim_customer`. |
+| `not_null` `customer_unique_id` | Without the person key, repeat buyers cannot be counted. Olist reissues `customer_id` per order. |
+| `accepted_values` `customer_state` | A junk UF such as `XX` breaks regional GMV (SP vs a free-text city). |
+| `unique` / `not_null` `silver_products.product_id` | Duplicate products duplicate `dim_product` and fan out facts. |
+| `expect_column_values_to_be_between` `product_weight_g` 0–50000 | A negative weight is a unit error; a 200 kg "phone" would skew shipping models. Measured max after replay was 40425. |
+| `unique` / `not_null` `silver_sellers.seller_id` | Duplicate sellers break seller-level GMV. |
+| `unique` / `not_null` `silver_geolocation.geolocation_zip_code_prefix` | This model's grain is one row per zip. Duplicates would double-count when customers join to geo. |
+| `unique` / `not_null` `dim_customer.customer_sk` | A duplicate person key fans out `fct_order_items` and doubles that customer's revenue. |
+| `unique` / `not_null` `dim_product.product_sk` | A duplicate product key fans out facts and doubles category revenue. |
+| `unique` / `not_null` `dim_date.date_key` | A duplicate calendar day doubles that day's GMV in the star schema. |
+| `unique` / `not_null` `fct_order_items.order_item_key` | Duplicate facts double GMV. |
+| `not_null` `fct_order_items.price` | A null price zeroes that line in `SUM(price)`. |
+| `relationships` `customer_sk` / `product_sk` / `date_key` | An orphan fact key is dropped from a star-schema join, so dashboards understate revenue. |
+| `expect_table_row_count_to_equal_other_table` vs non-quarantined `silver_order_items` | The gold inner join to orders dropped lines. After replay both sides were 105,024. |
+| `assert_gross_amount_equals_price_plus_freight` | If `gross_amount` drifts from `price + freight_value`, finance "gross" disagrees with the item grain. |
+| `unique` / `not_null` `fct_daily_sales.date_key` | Two rows for one day double that day's GMV on a time series. |
+| `not_null` `fct_daily_sales.revenue` | A null day disappears from `SUM` of daily revenue. |
+
+### Soda Core (freshness and row-count)
+
+Four local contracts, no Soda Cloud. `scripts/run_soda.py` writes `soda/ds_config.local.yml` (gitignored) with the warehouse path and runs `soda contract verify`. Measured after the Phase 2 full-refresh: `fct_order_items` 105,024 rows, freshness 0.039 days; `dim_customer` 89,505 rows.
+
+| Check | Bound | If it failed, the business effect |
+| --- | --- | --- |
+| `fct_order_items` `row_count` | 90,000–130,000 | Gold is empty (ingest/dbt stalled) or a duplicated load roughly doubled GMV. After replay: 105,024. |
+| `fct_order_items` `freshness(_ingested_at)` | < 7 days | Facts are not receiving new arrivals. Uses `_ingested_at`, not `order_date` (2018 dates would always look stale). |
+| `fct_daily_sales` `row_count` | 400–800 | The daily spine collapsed or exploded. After replay: 585. |
+| `dim_customer` `row_count` | 70,000–110,000 | The person dimension is empty or duplicated. After replay: 89,505. |
+| `silver_orders` `row_count` | 80,000–120,000 | Orders silver is empty or duplicated. After replay: 92,587. |
+| `silver_orders` `freshness(_ingested_at)` | < 7 days | Ingest has not landed new orders. Same arrival clock as the dbt freshness test, on the orders table. |
