@@ -1,5 +1,7 @@
 # OneLake Medallion
 
+[![ci](https://github.com/Shiva-data101/OneLake-Medallion/actions/workflows/ci.yml/badge.svg)](https://github.com/Shiva-data101/OneLake-Medallion/actions/workflows/ci.yml)
+
 Local lakehouse for the Olist Brazilian E-Commerce dataset: daily landing files, append-only Bronze Delta, dbt Silver/Gold on DuckDB, a data-quality gate (`dbt_expectations` plus Soda Core), and GitHub Actions CI.
 
 Later phases add Fabric/OneLake and Terraform.
