@@ -44,7 +44,8 @@ jobs:
 
       - name: dbt build (CI fixture)
         working-directory: transform
-        run: dbt build --target ci --profiles-dir . --vars '{ci_mode: true}' --exclude tag:volume tag:freshness
+        run: |
+          dbt build --target ci --profiles-dir . --vars '{ci_mode: true}' --exclude tag:volume tag:freshness
 
       - name: Soda gold schema (CI warehouse)
         run: python scripts/run_soda.py --ci

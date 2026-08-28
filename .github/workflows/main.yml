@@ -41,8 +41,10 @@ jobs:
 
       - name: dbt build (CI fixture)
         working-directory: transform
-        run: dbt build --target ci --profiles-dir . --vars '{ci_mode: true}' --exclude tag:volume tag:freshness
+        run: |
+          dbt build --target ci --profiles-dir . --vars '{ci_mode: true}' --exclude tag:volume tag:freshness
 
       - name: dbt docs generate
         working-directory: transform
-        run: dbt docs generate --target ci --profiles-dir . --vars '{ci_mode: true}'
+        run: |
+          dbt docs generate --target ci --profiles-dir . --vars '{ci_mode: true}'
