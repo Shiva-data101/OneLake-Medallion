@@ -30,12 +30,12 @@ inner join {{ ref('silver_orders') }} as orders
     on items.order_id = orders.order_id
 left join {{ ref('silver_customers') }} as customers
     on orders.customer_id = customers.customer_id
-where not items.is_quarantined
+where items.is_quarantined = false
   and items.price >= 0
   and items.freight_value >= 0
 {% if is_incremental() %}
   and items._ingested_at > (
-      select coalesce(max(_ingested_at), timestamp '1900-01-01 00:00:00')
-      from {{ this }}
+      select coalesce(max(existing._ingested_at), timestamp '1900-01-01 00:00:00')
+      from {{ this }} as existing
   )
 {% endif %}

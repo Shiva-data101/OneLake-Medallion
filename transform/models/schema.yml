@@ -38,6 +38,8 @@ models:
               arguments:
                 datepart: day
                 interval: 7
+              config:
+                tags: [freshness]
 
   - name: silver_order_items
     columns:
@@ -135,6 +137,8 @@ models:
               arguments:
                 min_value: 3.5
                 max_value: 4.7
+              config:
+                tags: [volume]
 
   - name: silver_customers
     columns:
@@ -218,6 +222,8 @@ models:
           arguments:
             compare_model: ref('silver_order_items')
             compare_row_condition: "not is_quarantined"
+          config:
+            tags: [volume]
     columns:
       - name: order_item_key
         tests: [unique, not_null]

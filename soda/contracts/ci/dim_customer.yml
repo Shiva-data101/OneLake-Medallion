@@ -1,0 +1,21 @@
+dataset: onelake/main_gold/dim_customer
+
+checks:
+  - schema:
+      name: dim_customer gold schema
+      allow_extra_columns: false
+      allow_other_column_order: true
+
+columns:
+  - name: customer_sk
+    data_type: VARCHAR
+  - name: customer_unique_id
+    data_type: VARCHAR
+  - name: customer_zip_code_prefix
+    data_type: VARCHAR
+  - name: customer_city
+    data_type: VARCHAR
+  - name: customer_state
+    data_type: VARCHAR
+  - name: updated_at
+    data_type: TIMESTAMP

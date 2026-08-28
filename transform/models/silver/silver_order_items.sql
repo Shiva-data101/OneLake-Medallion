@@ -29,9 +29,6 @@ select
     _ingested_at,
     _source_file,
     _batch_id,
-    case
-        when price < 0 or freight_value < 0 then true
-        else false
-    end as is_quarantined
+    (price < 0 or freight_value < 0) as is_quarantined
 from ranked
 where _row_num = 1

@@ -22,5 +22,5 @@ select
     extract(day from date_day) as day_of_month,
     strftime(date_day, '%A') as day_name,
     strftime(date_day, '%B') as month_name,
-    case when extract(dow from date_day) in (0, 6) then true else false end as is_weekend
+    extract(dow from date_day) in (0, 6) as is_weekend
 from spine

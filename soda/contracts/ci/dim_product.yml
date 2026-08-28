@@ -1,0 +1,33 @@
+dataset: onelake/main_gold/dim_product
+
+checks:
+  - schema:
+      name: dim_product gold schema
+      allow_extra_columns: false
+      allow_other_column_order: true
+
+columns:
+  - name: product_sk
+    data_type: VARCHAR
+  - name: product_id
+    data_type: VARCHAR
+  - name: product_category_name
+    data_type: VARCHAR
+  - name: product_category
+    data_type: VARCHAR
+  - name: product_name_length
+    data_type: INTEGER
+  - name: product_description_length
+    data_type: INTEGER
+  - name: product_photos_qty
+    data_type: INTEGER
+  - name: product_weight_g
+    data_type: DOUBLE
+  - name: product_length_cm
+    data_type: DOUBLE
+  - name: product_height_cm
+    data_type: DOUBLE
+  - name: product_width_cm
+    data_type: DOUBLE
+  - name: updated_at
+    data_type: TIMESTAMP

@@ -1,6 +1,10 @@
 {% macro bronze_source(table_name) %}
+{%- if var('ci_mode', false) -%}
+{{ ref(table_name ~ '_seed') }}
+{%- else -%}
 {%- set root = env_var('ONELAKE_BRONZE', 'data/bronze') -%}
 read_parquet('{{ root }}/{{ table_name }}/*.parquet', union_by_name=true, hive_partitioning=0)
+{%- endif -%}
 {% endmacro %}
 
 

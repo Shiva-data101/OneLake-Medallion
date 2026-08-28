@@ -1,0 +1,29 @@
+dataset: onelake/main_gold/dim_date
+
+checks:
+  - schema:
+      name: dim_date gold schema
+      allow_extra_columns: false
+      allow_other_column_order: true
+
+columns:
+  - name: date_key
+    data_type: INTEGER
+  - name: date_actual
+    data_type: DATE
+  - name: year_number
+    data_type: BIGINT
+  - name: quarter_number
+    data_type: BIGINT
+  - name: month_number
+    data_type: BIGINT
+  - name: week_number
+    data_type: BIGINT
+  - name: day_of_month
+    data_type: BIGINT
+  - name: day_name
+    data_type: VARCHAR
+  - name: month_name
+    data_type: VARCHAR
+  - name: is_weekend
+    data_type: BOOLEAN

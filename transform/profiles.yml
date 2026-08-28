@@ -8,3 +8,10 @@ onelake:
       schema: main
       settings:
         timezone: UTC
+    ci:
+      type: duckdb
+      path: "{{ env_var('ONELAKE_CI_DUCKDB', '../data/warehouse/ci.duckdb') }}"
+      threads: 4
+      schema: main
+      settings:
+        timezone: UTC

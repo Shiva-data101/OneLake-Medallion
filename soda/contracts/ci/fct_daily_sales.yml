@@ -1,0 +1,29 @@
+dataset: onelake/main_gold/fct_daily_sales
+
+checks:
+  - schema:
+      name: fct_daily_sales gold schema
+      allow_extra_columns: false
+      allow_other_column_order: true
+
+columns:
+  - name: date_key
+    data_type: INTEGER
+  - name: order_date
+    data_type: DATE
+  - name: order_count
+    data_type: BIGINT
+  - name: order_item_count
+    data_type: BIGINT
+  - name: revenue
+    data_type: DOUBLE
+  - name: freight_amount
+    data_type: DOUBLE
+  - name: gross_amount
+    data_type: DOUBLE
+  - name: average_order_value
+    data_type: DOUBLE
+  - name: customer_count
+    data_type: BIGINT
+  - name: canceled_item_count
+    data_type: HUGEINT

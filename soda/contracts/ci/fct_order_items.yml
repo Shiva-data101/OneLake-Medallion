@@ -1,0 +1,45 @@
+dataset: onelake/main_gold/fct_order_items
+
+checks:
+  - schema:
+      name: fct_order_items gold schema
+      allow_extra_columns: false
+      allow_other_column_order: true
+
+columns:
+  - name: order_item_key
+    data_type: VARCHAR
+  - name: order_id
+    data_type: VARCHAR
+  - name: order_item_id
+    data_type: INTEGER
+  - name: customer_id
+    data_type: VARCHAR
+  - name: customer_unique_id
+    data_type: VARCHAR
+  - name: customer_sk
+    data_type: VARCHAR
+  - name: product_id
+    data_type: VARCHAR
+  - name: product_sk
+    data_type: VARCHAR
+  - name: seller_id
+    data_type: VARCHAR
+  - name: order_status
+    data_type: VARCHAR
+  - name: order_date
+    data_type: DATE
+  - name: date_key
+    data_type: INTEGER
+  - name: order_purchase_timestamp
+    data_type: TIMESTAMP
+  - name: price
+    data_type: DOUBLE
+  - name: freight_value
+    data_type: DOUBLE
+  - name: gross_amount
+    data_type: DOUBLE
+  - name: updated_at
+    data_type: TIMESTAMP
+  - name: _ingested_at
+    data_type: TIMESTAMP
