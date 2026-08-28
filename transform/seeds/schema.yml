@@ -1,0 +1,84 @@
+version: 2
+
+seeds:
+  - name: orders_seed
+    config:
+      column_types:
+        order_id: varchar
+        customer_id: varchar
+        order_status: varchar
+        _source_file: varchar
+        _batch_id: varchar
+
+  - name: order_items_seed
+    config:
+      column_types:
+        order_id: varchar
+        product_id: varchar
+        seller_id: varchar
+        _source_file: varchar
+        _batch_id: varchar
+
+  - name: order_payments_seed
+    config:
+      column_types:
+        order_id: varchar
+        payment_type: varchar
+        _source_file: varchar
+        _batch_id: varchar
+
+  - name: order_reviews_seed
+    config:
+      column_types:
+        review_id: varchar
+        order_id: varchar
+        review_comment_title: varchar
+        review_comment_message: varchar
+        _source_file: varchar
+        _batch_id: varchar
+
+  - name: customers_seed
+    config:
+      column_types:
+        customer_id: varchar
+        customer_unique_id: varchar
+        customer_zip_code_prefix: varchar
+        customer_city: varchar
+        customer_state: varchar
+        _source_file: varchar
+        _batch_id: varchar
+
+  - name: products_seed
+    config:
+      column_types:
+        product_id: varchar
+        product_category_name: varchar
+        _source_file: varchar
+        _batch_id: varchar
+
+  - name: sellers_seed
+    config:
+      column_types:
+        seller_id: varchar
+        seller_zip_code_prefix: varchar
+        seller_city: varchar
+        seller_state: varchar
+        _source_file: varchar
+        _batch_id: varchar
+
+  - name: geolocation_seed
+    config:
+      column_types:
+        geolocation_zip_code_prefix: varchar
+        geolocation_city: varchar
+        geolocation_state: varchar
+        _source_file: varchar
+        _batch_id: varchar
+
+  - name: product_category_translation_seed
+    config:
+      column_types:
+        product_category_name: varchar
+        product_category_name_english: varchar
+        _source_file: varchar
+        _batch_id: varchar
