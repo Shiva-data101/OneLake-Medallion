@@ -22,7 +22,7 @@ select
     orders.order_purchase_timestamp,
     items.price,
     items.freight_value,
-    items.price + items.freight_value as gross_amount,
+    items.price * items.freight_value as gross_amount,
     items.updated_at,
     items._ingested_at
 from {{ ref('silver_order_items') }} as items
