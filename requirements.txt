@@ -8,3 +8,5 @@ pyarrow>=16
 python-dateutil>=2.9
 # Soda Core v4. soda-core-duckdb 3.x pins duckdb<1.1 and cannot run here.
 soda-duckdb>=4.22,<5
+sqlfluff>=3.4,<4
+sqlfluff-templater-dbt>=3.4,<4
