@@ -1,0 +1,73 @@
+name: ci
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  quality-gate:
+    runs-on: ubuntu-latest
+    env:
+      ONELAKE_CI_DUCKDB: ${{ github.workspace }}/data/warehouse/ci.duckdb
+      PYTHONUTF8: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: .python-version
+          cache: pip
+
+      - name: Install Python deps
+        run: python -m pip install -r requirements.txt
+
+      - name: Cache dbt packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.dbt
+            transform/dbt_packages
+          key: dbt-${{ runner.os }}-${{ hashFiles('transform/package-lock.yml') }}
+
+      - name: dbt deps
+        working-directory: transform
+        run: dbt deps --profiles-dir .
+
+      - name: Create CI warehouse dir
+        run: mkdir -p data/warehouse
+
+      - name: sqlfluff lint
+        run: sqlfluff lint transform/models transform/tests
+
+      - name: dbt build (CI fixture)
+        working-directory: transform
+        run: dbt build --target ci --profiles-dir . --vars '{ci_mode: true}' --exclude tag:volume tag:freshness
+
+      - name: Soda gold schema (CI warehouse)
+        run: python scripts/run_soda.py --ci
+
+      - name: Post PR summary
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const outcome = '${{ job.status }}';
+            const body = [
+              '## CI quality gate',
+              '',
+              `- Result: **${outcome}**`,
+              '- Command: `dbt build --target ci --vars \'{ci_mode: true}\' --exclude tag:volume tag:freshness`',
+              '- Fixture: committed `transform/seeds/` (~2,000 orders, referentially consistent)',
+              '- Excluded `tag:volume` (full-warehouse row counts and review-score mean)',
+              '- Excluded `tag:freshness` (7-day arrival check; seeds have a fixed `_ingested_at`)',
+              '- Soda: gold column presence and types (row_count and freshness stay full-scale)',
+            ].join('\n');
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });

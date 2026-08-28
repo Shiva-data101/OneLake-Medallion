@@ -1,8 +1,8 @@
 # OneLake Medallion
 
-Local lakehouse for the Olist Brazilian E-Commerce dataset: daily landing files, append-only Bronze Delta, dbt Silver/Gold on DuckDB, and a data-quality gate (`dbt_expectations` plus Soda Core).
+Local lakehouse for the Olist Brazilian E-Commerce dataset: daily landing files, append-only Bronze Delta, dbt Silver/Gold on DuckDB, a data-quality gate (`dbt_expectations` plus Soda Core), and GitHub Actions CI.
 
-Later phases add CI/CD, Fabric/OneLake, and Terraform.
+Later phases add Fabric/OneLake and Terraform.
 
 ## Get the data
 
@@ -59,6 +59,8 @@ py -3.12 -m venv .venv
 ```
 
 Quality checks: dbt generic tests, `dbt_expectations` 0.10.10, and Soda Core v4 (`soda-duckdb`). Soda Core v3 (`soda-core-duckdb` 3.5) pins `duckdb<1.1` and cannot run against this warehouse (DuckDB 1.5.5). No Azure CLI, Terraform, Docker, or Fabric trial is required.
+
+Pull-request CI is described under [CI (Phase 3)](#ci-phase-3).
 
 ## Run the cutoff + 30-day replay
 
@@ -205,3 +207,41 @@ Four local contracts, no Soda Cloud. `scripts/run_soda.py` writes `soda/ds_confi
 | `dim_customer` `row_count` | 70,000–110,000 | The person dimension is empty or duplicated. After replay: 89,505. |
 | `silver_orders` `row_count` | 80,000–120,000 | Orders silver is empty or duplicated. After replay: 92,587. |
 | `silver_orders` `freshness(_ingested_at)` | < 7 days | Ingest has not landed new orders. Same arrival clock as the dbt freshness test, on the orders table. |
+
+## CI (Phase 3)
+
+GitHub Actions is the merge gate. A pull request never sees `archive/`, bronze, or `onelake.duckdb`. It builds a committed seed fixture into `data/warehouse/ci.duckdb` and runs the checks that are about the code, not about the size or freshness of a live warehouse.
+
+### Why seeds
+
+CI has no Kaggle dump and no ingest. `transform/seeds/` is a referentially consistent slice sampled parents-first (`scripts/make_ci_seeds.py`): 2,000 orders, 2,253 items, 2,100 payments, 1,984 reviews, 2,000 customers, 1,715 products, 739 sellers. All six orphan checks were 0 when the slice was written.
+
+`bronze_source()` reads `ref('<table>_seed')` when `ci_mode` is true, and bronze parquet otherwise. The `ci` profile target writes `ci.duckdb`, never the local warehouse. Seeds themselves are `enabled` only under `ci_mode`, so a normal local `dbt build` does not load fixture tables into `onelake.duckdb`.
+
+Regenerate locally with `python scripts/make_ci_seeds.py --write` after ingest. Do not loosen full-scale bounds to make CI pass.
+
+### Which checks run where
+
+| Check | CI (`--exclude tag:volume tag:freshness`) | Full warehouse |
+| --- | --- | --- |
+| Keys, accepted values, relationships, score 1–5, price/freight bounds, `gross_amount` | yes | yes |
+| `expect_table_row_count_to_equal_other_table` on `fct_order_items` | no (`tag:volume`) | yes |
+| `expect_column_mean_to_be_between` on `review_score` | no (`tag:volume`) | yes |
+| `expect_row_values_to_have_recent_data` on `silver_orders._ingested_at` | no (`tag:freshness`) | yes |
+| Soda gold schema (column presence and type) | yes (`scripts/run_soda.py --ci`) | no |
+| Soda `row_count` contracts | no | yes (`scripts/run_soda.py`) |
+| Soda freshness on `_ingested_at` | no | yes (`scripts/run_soda.py`) |
+
+Volume tests encode full-warehouse counts and the measured review-score mean. They fail on a 2,000-order slice for the right reason. Freshness is an operational check on a live warehouse; seeds carry a fixed `_ingested_at`, so a 7-day window would pass today and fail next week with no code change. Soda in CI checks gold column names and types (order is not enforced). Row-count and freshness contracts stay on the full warehouse.
+
+### Commands and workflows
+
+PR job (`.github/workflows/ci.yml`): sqlfluff, then
+
+```text
+dbt build --target ci --vars "{ci_mode: true}" --exclude tag:volume tag:freshness
+```
+
+then `python scripts/run_soda.py --ci`.
+
+Push to `main` (`.github/workflows/main.yml`): the same `dbt build`, then `dbt docs generate`.
