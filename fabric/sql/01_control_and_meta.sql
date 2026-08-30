@@ -1,29 +1,28 @@
 -- Fabric Warehouse: wh_onelake
--- Metadata that drives the ingestion pipeline, plus the run log that makes
--- the incremental-vs-full comparison measurable rather than claimed.
+-- Control tables for the ingest pipeline, plus a run log so I can
+-- compare incremental vs full with real numbers, not claims.
 --
--- This mirrors the local Phase 1 design:
+-- Same idea as local Phase 1:
 --   data/control/watermarks.json  ->  meta.ingest_control.last_batch_date
 --   data/control/run_log.jsonl    ->  meta.run_log
 
 CREATE SCHEMA meta;
 GO
 
--- One row per source table. Adding a tenth source is an INSERT here,
--- not a new pipeline.
+-- One row per source table. A tenth source is an INSERT here, not a new pipeline.
 CREATE TABLE meta.ingest_control (
     table_name        varchar(64)  NOT NULL,
     load_type         varchar(16)  NOT NULL,  -- 'daily' | 'reference'
     source_path       varchar(256) NOT NULL,
     file_name         varchar(64)  NOT NULL,
     watermark_column  varchar(64)  NOT NULL,
-    last_batch_date   date             NULL,  -- folder cursor; NULL for reference
+    last_batch_date   date             NULL,  -- folder cursor. NULL for reference.
     destination_table varchar(64)  NOT NULL,
     is_active         bit          NOT NULL
 );
 GO
 
--- Every pipeline and dbt run appends here: rows, duration, run type.
+-- Every pipeline and dbt run appends here. Rows, duration, run type.
 CREATE TABLE meta.run_log (
     run_id           varchar(64)  NOT NULL,
     layer            varchar(32)  NOT NULL,  -- 'bronze' | 'silver' | 'gold'
@@ -37,9 +36,9 @@ CREATE TABLE meta.run_log (
 );
 GO
 
--- Daily tables: sliced into landing/YYYY-MM-DD/ folders.
--- last_batch_date starts at the Phase 1 cutoff, so the first pipeline run
--- picks up 2018-07-01 (the replay queue: 77 folders through 2018-10-17).
+-- Daily tables sit in landing/YYYY-MM-DD/ folders.
+-- last_batch_date starts at the Phase 1 cutoff, so the first pipeline
+-- run picks up 2018-07-01. That is the replay queue, 77 folders through 2018-10-17.
 INSERT INTO meta.ingest_control
 (table_name, load_type, source_path, file_name, watermark_column, last_batch_date, destination_table, is_active)
 VALUES
@@ -54,7 +53,10 @@ VALUES
 ('product_category_translation','reference', 'Files/landing/_reference', 'product_category_translation.parquet','_ingested_at', NULL,         'bronze_product_category_translation',1);
 GO
 
--- Called by the pipeline after a folder is copied, to advance the cursor.
+-- Pipeline calls this after that table's folder is copied, so the cursor
+-- moves only then. I first ran five of these in parallel. Fabric Warehouse
+-- uses snapshot isolation, so those UPDATEs aborted with an update conflict.
+-- ForEach on pl_ingest_daily is sequential now.
 CREATE PROCEDURE meta.sp_update_watermark
     @table_name varchar(64),
     @batch_date date

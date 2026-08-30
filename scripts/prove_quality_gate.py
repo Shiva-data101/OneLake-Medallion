@@ -1,4 +1,4 @@
-"""Prove the Phase 2 quality gate: poison one bronze review, watch a named
+"""Prove the Phase 2 quality gate. Poison one bronze review, watch a named
 dbt test fail, restore the row, watch it pass.
 
 Staging only try_casts review_score, so a 99 lands in silver. The gate is
@@ -86,8 +86,8 @@ def main() -> int:
         print("Expected dbt build to fail after poisoning review_score; it passed.")
         return 1
     if PROOF_TEST not in (failed.stdout or "") + (failed.stderr or ""):
-        # dbt prints the test name to the console; subprocess inherits the tty so
-        # stdout may be empty here. The return code is still the gate.
+        # dbt prints the test name to the console. subprocess inherits the tty,
+        # so stdout may be empty here. The return code is still the gate.
         print(f"dbt build failed as expected (exit {failed.returncode}). Look for FAIL on {PROOF_TEST}")
     else:
         print(f"Named test failed as expected: {PROOF_TEST}")

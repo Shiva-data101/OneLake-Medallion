@@ -1,9 +1,8 @@
-{# One seam for where bronze lives. Three environments, one macro:
+{# One place that says where bronze lives.
      ci      -> committed seed fixtures
-     fabric  -> Delta tables in the lh_bronze Lakehouse, read cross-database
-                from the Warehouse (any Warehouse can read any Lakehouse in
-                the same workspace via item.schema.table)
-     dev     -> local parquet on disk, read by DuckDB #}
+     fabric  -> Delta tables in lh_bronze, read from the Warehouse
+                (any Warehouse can read any Lakehouse in the same workspace)
+     dev     -> local parquet, read by DuckDB #}
 {% macro bronze_source(table_name) %}
 {%- if var('ci_mode', false) -%}
 {{ ref(table_name ~ '_seed') }}
@@ -17,8 +16,8 @@ read_parquet('{{ root }}/{{ table_name }}/*.parquet', union_by_name=true, hive_p
 {% endmacro %}
 
 
-{# Arrival clock, not business clock. updated_at can sit in the future after
-   backfill (delivery dates); _ingested_at only moves when ingest writes. #}
+{# Do not use updated_at here. It is a delivery date so it can be far in
+   the future. _ingested_at only changes when ingest actually writes, so it is safe. #}
 {% macro incremental_ingested_at(column_name='_ingested_at') %}
 {% if is_incremental() %}
 and {{ column_name }} > (

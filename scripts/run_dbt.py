@@ -1,4 +1,4 @@
-"""Run dbt build and append timing to the Phase 1 run log."""
+"""Run dbt build and append timing to the run log."""
 
 from __future__ import annotations
 

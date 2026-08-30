@@ -79,7 +79,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--ci",
         action="store_true",
-        help="Scan the CI warehouse with gold schema contracts (skip freshness and volume row_count)",
+        help="Scan the CI warehouse with gold schema contracts. Skip freshness and volume row_count.",
     )
     parser.add_argument("--database", type=Path, default=None)
     return parser.parse_args()

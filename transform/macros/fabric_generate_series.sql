@@ -1,6 +1,6 @@
-{# dbt_utils.generate_series() ends with ORDER BY (illegal in a T-SQL CTE)
-   and the adapter copy is a nested WITH (Fabric CTAS fails with
-   "Get single node from XML DOM failed"). This emit is a plain SELECT. #}
+{# dbt_utils.generate_series() ends with ORDER BY, which T-SQL does not
+   allow in a CTE. The adapter copy is a nested WITH, and Fabric CTAS
+   fails with "Get single node from XML DOM failed". This one is a plain SELECT. #}
 {% macro fabric__generate_series(upper_bound) %}
     {% if upper_bound <= 0 %}
         {{ exceptions.raise_compiler_error("upper bound must be positive") }}

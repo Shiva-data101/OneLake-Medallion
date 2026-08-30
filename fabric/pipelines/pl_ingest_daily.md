@@ -1,17 +1,17 @@
 # pl_ingest_daily
 
-Copies the next unprocessed landing folder into bronze, one table at a time,
-and advances each table's cursor only after that table's copy succeeds.
+Copies the next unprocessed landing folder into bronze, one table at a time.
+Each table's cursor moves only after that table's copy succeeds.
 
-Equivalent to `python scripts/ingest.py --once` locally.
+Same job as `python scripts/ingest.py --once` locally.
 
-No If Condition: Fabric does not allow a ForEach inside one. It isn't needed —
-when the replay queue is exhausted the Lookup returns zero rows and the ForEach
-simply does nothing. The absence of a next batch is the stop signal.
+I did not use an If Condition. Fabric does not allow a ForEach inside one,
+and I do not need it. When the replay queue is empty the Lookup returns
+zero rows and the ForEach does nothing. No next batch is the stop signal.
 
-## 1. Lookup — `LookupNextBatch`
+## 1. Lookup: `LookupNextBatch`
 
-Connection: `wh_onelake`. **First row only: unchecked.**
+Connection: `wh_onelake`. First row only: unchecked.
 
 ```sql
 SELECT
@@ -29,18 +29,22 @@ WHERE c.is_active = 1
               WHERE b.batch_date > c.last_batch_date);
 ```
 
-Each table resolves its OWN next batch from its OWN cursor. If one table's copy
-fails, only that table stays behind and retries; the others are unaffected and
-nothing is copied twice.
+Each table finds its own next batch from its own cursor. If one table's copy
+fails, only that table stays behind and retries. The others are not touched.
+Nothing is copied twice.
 
-## 2. ForEach — `ForEachTable`
+## 2. ForEach: `ForEachTable`
 
 Connected directly to the Lookup on success.
 
 - Items: `@activity('LookupNextBatch').output.value`
-- Sequential: unchecked, Batch count: 5
+- Sequential: checked
 
-## 3. Copy — `CopyBatch` (inside ForEach)
+I first left Sequential unchecked with batch count 5. Fabric Warehouse uses
+snapshot isolation. Five parallel UPDATEs to `ingest_control` aborted with
+an update conflict. So I changed ForEach to sequential.
+
+## 3. Copy: `CopyBatch` (inside ForEach)
 
 Source: `lh_bronze`, root folder `Files`, wildcard file path
 
@@ -57,9 +61,9 @@ Additional columns:
 | `_batch_id` | `@{formatDateTime(item().batch_date,'yyyy-MM-dd')}` |
 
 Destination: `lh_bronze`, root folder `Tables`,
-table `@{item().destination_table}`, table action **Append**.
+table `@{item().destination_table}`, table action Append.
 
-## 4. Stored procedure — `AdvanceWatermark` (inside ForEach, after Copy, on success)
+## 4. Stored procedure: `AdvanceWatermark` (inside ForEach, after Copy, on success)
 
 Connection: `wh_onelake`. Procedure: `meta.sp_update_watermark`
 
@@ -68,5 +72,5 @@ Connection: `wh_onelake`. Procedure: `meta.sp_update_watermark`
 | `table_name` | String | `@{item().table_name}` |
 | `batch_date` | String | `@{formatDateTime(item().batch_date,'yyyy-MM-dd')}` |
 
-The cursor moves only after the copy succeeds. Same ordering as `ingest.py`,
+The cursor moves only after the copy succeeds. Same order as `ingest.py`,
 where the watermark write follows the Delta append.

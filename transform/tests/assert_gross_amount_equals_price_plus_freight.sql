@@ -1,6 +1,5 @@
--- Gold gross_amount is the line a finance report would sum. If the
--- expression drifts from price + freight, daily revenue splits from
--- the item grain without anyone noticing.
+-- Gold gross_amount is what a finance report would sum. If it drifts
+-- from price + freight, daily revenue no longer matches the item grain.
 select
     order_item_key,
     price,

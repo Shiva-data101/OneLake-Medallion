@@ -1,9 +1,9 @@
 """Append landing parquet into bronze Delta tables.
 
-Bronze stays raw: source columns plus _ingested_at, _source_file, _batch_id.
-last_batch_date is a folder cursor, not a row watermark. When landing/_meta.json
-exists you must pass --backfill, --once, or --all so the replay queue is not
-ingested by accident.
+Bronze stays raw. Source columns plus _ingested_at, _source_file, _batch_id.
+last_batch_date is a folder cursor, not a row watermark. If landing/_meta.json
+exists you must pass --backfill, --once, or --all. Otherwise I would ingest
+the replay queue by accident.
 """
 
 from __future__ import annotations

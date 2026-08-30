@@ -1,5 +1,5 @@
-{# Days since Sunday 1900-01-07, mod 7. 0=Sunday .. 6=Saturday.
-   Independent of SET DATEFIRST and session language. #}
+{# Days since Sunday 1900-01-07, mod 7. 0=Sunday to 6=Saturday.
+   Does not depend on SET DATEFIRST or session language. #}
 {% macro weekday_sun0(date_expr) %}
 ({{ dbt.datediff("cast('1900-01-07' as date)", date_expr, "day") }} % 7)
 {% endmacro %}
@@ -14,7 +14,7 @@ quarter({{ date_expr }})
 {% endmacro %}
 
 
-{# ISO week on both engines. DATEPART(week) is DATEFIRST-dependent. #}
+{# ISO week on both engines. DATEPART(week) changes with DATEFIRST. #}
 {% macro date_part_week(date_expr) %}
 {%- if target.type == 'fabric' -%}
 datepart(iso_week, {{ date_expr }})

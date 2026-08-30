@@ -1,6 +1,6 @@
 -- Advance every daily table's cursor in one call, after a batch is copied.
--- Mirrors the single write to data/control/watermarks.json in ingest.py:
--- the cursor moves only once the copy has actually succeeded.
+-- Same idea as the single write to data/control/watermarks.json in ingest.py.
+-- The cursor moves only after the copy has actually succeeded.
 
 CREATE PROCEDURE meta.sp_advance_daily_watermark
     @batch_date date
