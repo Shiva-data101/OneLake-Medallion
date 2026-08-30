@@ -26,4 +26,4 @@ columns:
   - name: month_name
     data_type: VARCHAR
   - name: is_weekend
-    data_type: BOOLEAN
+    data_type: INTEGER
