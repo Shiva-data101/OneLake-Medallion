@@ -1,8 +1,8 @@
 """Sample a referentially consistent bronze slice into transform/seeds/.
 
-CI has no archive/ and no bronze. Seeds are the fixture. Tables are not
-sampled independently: start from ~2,000 orders, then take only the rows
-those orders (and their items) actually reference.
+CI has no archive/ and no bronze. Seeds are the fixture. I do not sample
+tables on their own. Start from about 2,000 orders, then take only the
+rows those orders and their items actually reference.
 
 Default is a dry run that prints counts and orphan checks. Pass --write
 to emit CSV. Does not touch GitHub workflows.
@@ -21,17 +21,17 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from paths import ALL_TABLES, BRONZE_DIR, SEEDS_DIR
 
-# Order of operations — do not shuffle this graph.
+# Do not shuffle this graph. Parents first, then children.
 #   1. orders          distinct order_id, deterministic, limit n
 #   2. order_items     order_id in (1)
 #   3. order_payments  order_id in (1)
 #   4. order_reviews   order_id in (1)
-#   5. customers       customer_id in (1)   — Olist reissues customer_id per order
+#   5. customers       customer_id in (1). Olist reissues customer_id per order.
 #   6. products        product_id in (2)
 #   7. sellers         seller_id in (2)
-#   8. geolocation     zip in sampled customers ∪ sellers   (no relationships
-#                      test, but stg_geolocation still builds in CI)
-#   9. product_category_translation  category in sampled products  (left join)
+#   8. geolocation     zip in sampled customers or sellers. No relationships
+#                      test, but stg_geolocation still builds in CI.
+#   9. product_category_translation  category in sampled products (left join)
 DEFAULT_N_ORDERS = 2000
 DEFAULT_SALT = "onelake-ci-seeds"
 
@@ -63,7 +63,7 @@ def connect() -> duckdb.DuckDBPyConnection:
 
 def build_slice(con: duckdb.DuckDBPyConnection, *, n_orders: int, salt: str) -> None:
     # 1. Parent keys. Inner-join customers so every sampled order has the
-    #    per-order customer_id row dim_customer will need.
+    #    per-order customer_id row that dim_customer will need.
     con.execute(
         f"""
         CREATE OR REPLACE TABLE sampled_order_ids AS
@@ -144,10 +144,10 @@ def build_slice(con: duckdb.DuckDBPyConnection, *, n_orders: int, salt: str) -> 
         """
     )
 
-    # 8–9. Geo is append-only in bronze with many rows per zip (285k rows
-    # for ~2k zips in a 2k-order slice). The seed keeps one row per zip,
+    # 8-9. Geo is append-only in bronze, many rows per zip (285k rows
+    # for about 2k zips in a 2k-order slice). The seed keeps one row per zip,
     # same grain silver will use. No relationships test points at geo.
-    # Translation is a left join; only categories the sampled products use.
+    # Translation is a left join. Only categories the sampled products use.
     con.execute(
         f"""
         CREATE OR REPLACE TABLE slice_geolocation AS

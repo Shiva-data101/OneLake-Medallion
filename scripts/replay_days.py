@@ -1,8 +1,8 @@
-"""Replay the next N landing days: ingest --once, then incremental dbt build.
+"""Replay the next N landing days. ingest --once, then incremental dbt build.
 
 Each cycle appends data/benchmark/replay_days.jsonl. Stops if ingest finds
-no next folder. last_batch_date must already sit at the cutoff (run
-ingest --backfill first).
+no next folder. last_batch_date must already sit at the cutoff. Run
+ingest --backfill first.
 """
 
 from __future__ import annotations

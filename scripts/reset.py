@@ -1,8 +1,8 @@
-"""Return processed state to zero. Landing and archive/ are left alone.
+"""Put processed state back to zero. Landing and archive/ are left alone.
 
 Deletes bronze Delta tables, watermarks.json, run_log.jsonl, and the DuckDB
-file so the next dbt build is a true full refresh (is_incremental() is false).
-Safe to re-run: missing paths are skipped.
+file so the next dbt build is a real full refresh (is_incremental() is false).
+Safe to run again. Missing paths are skipped.
 """
 
 from __future__ import annotations

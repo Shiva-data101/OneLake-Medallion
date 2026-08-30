@@ -1,8 +1,9 @@
 """Split Olist CSVs into daily landing parquet files.
 
-Folder names are order_date (source-arrival simulation), not a watermark.
---cutoff writes landing/_meta.json so ingest can backfill <= cutoff and
-leave later folders as the replay queue. updated_at is the dbt watermark.
+Folder names are order_date. That is a source-arrival simulation, not a
+watermark. --cutoff writes landing/_meta.json so ingest can backfill
+through the cutoff and leave later folders as the replay queue.
+Do not use updated_at as the dbt watermark. It is a delivery date.
 """
 
 from __future__ import annotations

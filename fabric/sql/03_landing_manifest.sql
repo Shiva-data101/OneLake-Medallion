@@ -1,9 +1,9 @@
 -- Manifest of landing batches. The daily pipeline asks this table for the
--- next unprocessed folder, because landing dates are not contiguous:
--- 634 folders span 2016-09-04 to 2018-10-17, and Olist has days with no orders.
--- "last_batch_date + 1 day" would frequently point at a folder that does not exist.
+-- next unprocessed folder. Landing dates are not contiguous. 634 folders
+-- span 2016-09-04 to 2018-10-17, and Olist has days with no orders.
+-- last_batch_date + 1 day would often point at a folder that does not exist.
 --
--- Generated from data/landing/ - see fabric/sql/ in the repo.
+-- Generated from data/landing/. See fabric/sql/ in the repo.
 
 CREATE TABLE meta.landing_batches (
     batch_date date NOT NULL
@@ -647,8 +647,7 @@ INSERT INTO meta.landing_batches (batch_date) VALUES
 ('2018-10-17');
 GO
 
--- Sanity: 634 total, 557 at or before the cutoff,
--- 77 in the replay queue.
+-- Check: 634 total, 557 at or before the cutoff, 77 in the replay queue.
 SELECT
     COUNT(*)                                              AS total_batches,
     SUM(CASE WHEN batch_date <= '2018-06-30' THEN 1 ELSE 0 END) AS backfilled,

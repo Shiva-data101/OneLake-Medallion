@@ -1,8 +1,8 @@
-{# All nine Fabric dbt_expectations errors share one path:
+{# All nine Fabric dbt_expectations errors go through the same path:
      expect_* -> expression_is_true -> truth_expression
-   default__truth_expression selects a boolean column and then filters
+   The package default selects a boolean column and then filters
    `not(expression = true)`. T-SQL has neither. These overrides keep
-   three-valued logic (NULL stays NULL, not a failure) on DuckDB and Fabric. #}
+   NULL as NULL (not a fail) on both DuckDB and Fabric. #}
 
 {% macro default__truth_expression(expression) %}
 case
