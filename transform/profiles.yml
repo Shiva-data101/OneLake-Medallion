@@ -15,3 +15,14 @@ onelake:
       schema: main
       settings:
         timezone: UTC
+    fabric:
+      type: fabric
+      server: "crzlr2mpr3ievehmtvofnskjge-opzbo7htdboezlgnvbxisla4yu.datawarehouse.fabric.microsoft.com"
+      port: 1433
+      database: "wh_onelake"
+      schema: dbo
+      authentication: CLI
+      encrypt: true
+      trust_cert: false
+      threads: 4
+      retries: 2

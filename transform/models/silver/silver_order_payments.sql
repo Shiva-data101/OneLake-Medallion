@@ -3,7 +3,11 @@
 with ranked as (
     select
         *,
-        order_id || '-' || cast(payment_sequential as varchar) as payment_key,
+        {{ dbt.concat([
+            'order_id',
+            "'-'",
+            'cast(payment_sequential as ' ~ type_varchar(8) ~ ')'
+        ]) }} as payment_key,
         row_number() over (
             partition by order_id, payment_sequential
             order by updated_at desc, _ingested_at desc
