@@ -34,3 +34,9 @@ seeds:
     +schema: staging
     +quote_columns: false
     +enabled: "{{ var('ci_mode', false) | as_bool }}"
+
+dispatch:
+  - macro_namespace: dbt_expectations
+    search_order:
+      - onelake
+      - dbt_expectations

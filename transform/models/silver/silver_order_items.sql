@@ -3,7 +3,11 @@
 with ranked as (
     select
         *,
-        order_id || '-' || cast(order_item_id as varchar) as order_item_key,
+        {{ dbt.concat([
+            'order_id',
+            "'-'",
+            'cast(order_item_id as ' ~ type_varchar(8) ~ ')'
+        ]) }} as order_item_key,
         row_number() over (
             partition by order_id, order_item_id
             order by updated_at desc, _ingested_at desc
@@ -29,6 +33,9 @@ select
     _ingested_at,
     _source_file,
     _batch_id,
-    (price < 0 or freight_value < 0) as is_quarantined
+    cast(
+        case when price < 0 or freight_value < 0 then 1 else 0 end
+        as {{ type_flag() }}
+    ) as is_quarantined
 from ranked
 where _row_num = 1
